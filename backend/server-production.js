@@ -194,7 +194,3 @@ if (require.main === module) {
 }
 
 export { app, httpServer, io };
-});
-
-// Start the server
-startServer();
