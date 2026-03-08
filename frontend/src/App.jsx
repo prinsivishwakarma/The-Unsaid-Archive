@@ -6,9 +6,10 @@ import ClusterKey from './components/ClusterKey';
 import StatsBar from './components/StatsBar';
 import LoadingSpinner from './components/LoadingSpinner';
 import DebugPanel from './components/DebugPanel';
+import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import ClusterVisualization from './components/ClusterVisualization';
-import MesmerizingBackground from './components/MesmerizingBackground';
+import SimpleBackground from './components/SimpleBackground';
 import './App.css';
 
 const socket = io('http://localhost:3001', {
@@ -193,7 +194,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <MesmerizingBackground />
+      <SimpleBackground />
       
       <Navbar 
         totalCount={totalCount}
@@ -214,46 +215,56 @@ export default function App() {
       <main className="app-main" style={{ paddingTop: '100px' }}>
         <div className="content-grid">
           <div className="left-section">
-            <ClusterVisualization 
-              clusterCounts={clusters}
-              config={CLUSTER_CONFIG}
-              onFilterClick={toggleFilter}
-              activeFilter={filter}
-            />
-            
-            {showStats && (
-              <StatsBar 
+            <ErrorBoundary>
+              <ClusterVisualization 
                 clusterCounts={clusters}
                 config={CLUSTER_CONFIG}
                 onFilterClick={toggleFilter}
                 activeFilter={filter}
               />
+            </ErrorBoundary>
+            
+            {showStats && (
+              <ErrorBoundary>
+                <StatsBar 
+                  clusterCounts={clusters}
+                  config={CLUSTER_CONFIG}
+                  onFilterClick={toggleFilter}
+                  activeFilter={filter}
+                />
+              </ErrorBoundary>
             )}
           </div>
 
           <div className="center-section">
-            <div className="whisper-container">
-              <WhisperWall 
-                whispers={filteredWhispers}
-                clusters={clusters}
-                lastNew={lastNew}
-                config={CLUSTER_CONFIG}
-              />
-            </div>
+            <ErrorBoundary>
+              <div className="whisper-container">
+                <WhisperWall 
+                  whispers={filteredWhispers}
+                  clusters={clusters}
+                  lastNew={lastNew}
+                  config={CLUSTER_CONFIG}
+                />
+              </div>
+            </ErrorBoundary>
           </div>
           
           <div className="right-section">
-            <ClusterKey 
-              clusterCounts={clusters}
-              config={CLUSTER_CONFIG}
-              onFilterClick={toggleFilter}
-              activeFilter={filter}
-            />
+            <ErrorBoundary>
+              <ClusterKey 
+                clusterCounts={clusters}
+                config={CLUSTER_CONFIG}
+                onFilterClick={toggleFilter}
+                activeFilter={filter}
+              />
+            </ErrorBoundary>
             
-            <InputPanel 
-              onSubmit={handleSubmit}
-              submitting={submitting}
-            />
+            <ErrorBoundary>
+              <InputPanel 
+                onSubmit={handleSubmit}
+                submitting={submitting}
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </main>

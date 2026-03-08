@@ -970,12 +970,21 @@ html, body { width:100%; height:100%; overflow:hidden; }
   opacity:0.5; cursor:not-allowed;
 }
 
+/* Simple Background */
+.simple-background {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+}
+
+.simple-background .background-canvas {
+  width:100%; height:100%;
+}
+
 /* Mesmerizing Background */
 .mesmerizing-background {
   position:fixed; inset:0; z-index:1; pointer-events:none;
 }
 
-.background-canvas {
+.mesmerizing-background .background-canvas {
   width:100%; height:100%;
 }
 
