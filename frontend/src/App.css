@@ -549,7 +549,7 @@ html, body { width:100%; height:100%; overflow:hidden; }
 .cluster-stat.filtering .cluster-fill {
   background:rgba(255,255,255,0.3);
 }
-}
+
 .live-count strong { font-family:'EB Garamond',serif; font-size:20px; color:var(--white); }
 .live-dot {
   width:6px; height:6px; border-radius:50%; background:#86efac;
