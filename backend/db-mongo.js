@@ -15,11 +15,9 @@ export async function connectDB() {
     whispersCollection = db.collection('whispers');
     clustersCollection = db.collection('cluster_centroids');
     
-    // Create indexes for better performance
     await whispersCollection.createIndex({ created_at: -1 });
     await whispersCollection.createIndex({ cluster: 1 });
     
-    // Seed cluster definitions if empty
     const clusterCount = await clustersCollection.countDocuments();
     if (clusterCount === 0) {
       const clusters = [

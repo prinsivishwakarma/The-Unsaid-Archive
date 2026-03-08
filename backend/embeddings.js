@@ -1,51 +1,54 @@
-// Demo mode - smart random clustering without OpenAI API
-const CLUSTERS = {
-  work:   { keywords: ['work', 'job', 'career', 'office', 'meeting', 'boss', 'colleague', 'salary', 'promotion'], weight: 1.0 },
-  body:   { keywords: ['body', 'look', 'appearance', 'weight', 'beauty', 'dress', 'clothes', 'hair', 'face'], weight: 1.0 },
-  home:   { keywords: ['home', 'family', 'mother', 'father', 'husband', 'wife', 'kids', 'house', 'kitchen'], weight: 1.0 },
-  anger:  { keywords: ['angry', 'mad', 'furious', 'rage', 'upset', 'frustrated', 'annoyed', 'irritated'], weight: 1.0 },
-  dream:  { keywords: ['dream', 'goal', 'future', 'ambition', 'success', 'achieve', 'become', 'want', 'wish'], weight: 1.0 },
-  love:   { keywords: ['love', 'relationship', 'boyfriend', 'girlfriend', 'partner', 'date', 'marry', 'heart'], weight: 1.0 },
-  worth:  { keywords: ['worth', 'value', 'enough', 'good', 'capable', 'smart', 'talent', 'confidence', 'believe'], weight: 1.0 },
-  voice:  { keywords: ['speak', 'talk', 'voice', 'opinion', 'say', 'tell', 'listen', 'heard', 'silence'], weight: 1.0 }
+import { ObjectId } from 'mongodb';
+
+export const CLUSTERS = {
+  work: { keywords: ['work', 'office', 'job', 'boss', 'colleague', 'career', 'meeting', 'deadline', 'salary', 'promotion', 'fired', 'quit', 'harassment'] },
+  body: { keywords: ['body', 'health', 'weight', 'sick', 'pain', 'doctor', 'hospital', 'medicine', 'tired', 'headache', 'period', 'pregnant'] },
+  home: { keywords: ['home', 'family', 'parents', 'mother', 'father', 'sister', 'brother', 'husband', 'wife', 'kids', 'children', 'house', 'marriage'] },
+  anger: { keywords: ['angry', 'mad', 'furious', 'rage', 'yell', 'scream', 'shout', 'frustrated', 'annoyed', 'irritated', 'pissed', 'upset'] },
+  dream: { keywords: ['dream', 'future', 'goals', 'aspirations', 'career', 'success', 'ambition', 'achieve', 'believe', 'hope', 'wish', 'desire'] },
+  love: { keywords: ['love', 'heart', 'relationship', 'boyfriend', 'girlfriend', 'partner', 'crush', 'dating', 'marriage', 'romance', 'kiss', 'breakup'] },
+  worth: { keywords: ['worth', 'value', 'confidence', 'self', 'esteem', 'good enough', 'capable', 'strong', 'beautiful', 'smart', 'talented', 'proud'] }
 };
 
 export async function embedAndCluster(text) {
-  console.log('🎭 Demo mode: Smart random clustering without OpenAI API');
-  
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Calculate keyword-based scores
   const lowerText = text.toLowerCase();
-  const scores = {};
-  
+  const words = lowerText.match(/\b\w+\b/g) || [];
+
+  const clusterScores = {};
+
   Object.entries(CLUSTERS).forEach(([cluster, config]) => {
     let score = 0;
     config.keywords.forEach(keyword => {
       if (lowerText.includes(keyword)) {
-        score += config.weight;
+        score += 1;
       }
     });
-    // Add some randomness for demo purposes
-    score += Math.random() * 0.3;
-    scores[cluster] = score;
+    if (score > 0) {
+      clusterScores[cluster] = {
+        score,
+        percentage: (score / config.keywords.length) * 100
+      };
+    }
   });
-  
-  // Find the best cluster
-  const sortedClusters = Object.entries(scores).sort(([,a], [,b]) => b - a);
-  const bestCluster = sortedClusters[0][0];
-  
-  // Normalize scores for display
-  const maxScore = Math.max(...Object.values(scores));
-  const normalizedScores = Object.entries(scores).map(([key, score]) => ({
-    key,
-    score: (score / maxScore).toFixed(4)
-  }));
-  
-  // Fake embedding (1536 random values for consistency)
-  const fakeEmbedding = JSON.stringify(Array.from({ length: 1536 }, () => Math.random()));
-  
+
+  let bestCluster = 'general';
+  let maxScore = 0;
+
+  Object.entries(clusterScores).forEach(([cluster, scoreData]) => {
+    if (scoreData.score > maxScore) {
+      maxScore = scoreData.score;
+      bestCluster = cluster;
+    }
+  });
+
+  const fakeEmbedding = Array(384).fill(0).map(() => Math.random() - 0.5);
+  fakeEmbedding[0] = maxScore / 10;
+
+  const normalizedScores = {};
+  Object.entries(clusterScores).forEach(([cluster, data]) => {
+    normalizedScores[cluster] = data.percentage;
+  });
+
   return {
     cluster: bestCluster,
     embedding: fakeEmbedding,
