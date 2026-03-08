@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import WhisperWall from './components/WhisperWall';
 import InputPanel from './components/InputPanel';
@@ -8,7 +8,6 @@ import './App.css';
 
 const socket = io('http://localhost:3001');
 
-// Cluster layout config (mirrors backend cluster_centroids table)
 export const CLUSTER_CONFIG = {
   work:  { label:'Workplace',     color:'#e8a0bf', cx:0.25, cy:0.30 },
   body:  { label:'Body',          color:'#a78bfa', cx:0.75, cy:0.25 },
@@ -21,27 +20,56 @@ export const CLUSTER_CONFIG = {
 };
 
 export default function App() {
-  const [whispers, setWhispers]       = useState([]);
-  const [clusters, setClusters]       = useState({});
-  const [totalCount, setTotalCount]   = useState(0);
-  const [connected, setConnected]     = useState(0);
-  const [submitting, setSubmitting]   = useState(false);
-  const [lastNew, setLastNew]         = useState(null);
+  const [whispers, setWhispers] = useState([]);
+  const [clusters, setClusters] = useState({});
+  const [totalCount, setTotalCount] = useState(0);
+  const [connected, setConnected] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [lastNew, setLastNew] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [showStats, setShowStats] = useState(true);
+  const connectionTimeoutRef = useRef(null);
 
-  // Load existing whispers on mount
+  const fetchWhispers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/whispers');
+      if (!response.ok) throw new Error('Failed to fetch whispers');
+      const { whispers: w } = await response.json();
+      setWhispers(w);
+      setTotalCount(w.length);
+      const counts = {};
+      w.forEach(wh => counts[wh.cluster] = (counts[wh.cluster] || 0) + 1);
+      setClusters(counts);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching whispers:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    fetch('/api/whispers')
-      .then(r => r.json())
-      .then(({ whispers: w }) => {
-        setWhispers(w);
-        setTotalCount(w.length);
-        // Build cluster counts
-        const counts = {};
-        w.forEach(wh => counts[wh.cluster] = (counts[wh.cluster] || 0) + 1);
-        setClusters(counts);
-      });
+    fetchWhispers();
 
-    // Real-time: listen for new whispers from any user in the world
+    connectionTimeoutRef.current = setTimeout(() => {
+      if (!socket.connected) {
+        setError('Connection timeout. Please refresh the page.');
+      }
+    }, 5000);
+
+    socket.on('connect', () => {
+      setError(null);
+      clearTimeout(connectionTimeoutRef.current);
+    });
+
+    socket.on('disconnect', () => {
+      setError('Connection lost. Trying to reconnect...');
+    });
+
     socket.on('new_whisper', (whisper) => {
       setWhispers(prev => [...prev, whisper]);
       setTotalCount(prev => prev + 1);
@@ -49,35 +77,60 @@ export default function App() {
       setLastNew(whisper);
     });
 
-    socket.on('stats', ({ total, connected }) => {
-      setTotalCount(total);
-      setConnected(connected);
+    socket.on('stats', (stats) => {
+      setTotalCount(stats.total);
+      setConnected(stats.connected);
     });
 
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
       socket.off('new_whisper');
       socket.off('stats');
+      clearTimeout(connectionTimeoutRef.current);
     };
-  }, []);
+  }, [fetchWhispers]);
 
-  // Submit a new whisper
-  async function handleSubmit(text) {
-    if (!text.trim() || submitting) return;
+  const handleSubmit = useCallback(async (text) => {
     setSubmitting(true);
+    setError(null);
     try {
-      const res = await fetch('/api/whisper', {
+      const response = await fetch('/api/whisper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text })
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      // Socket.io broadcasts to everyone incl. us — no need to manually add
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to submit whisper');
+      }
     } catch (err) {
-      console.error(err);
+      setError(err.message);
+      console.error('Error submitting whisper:', err);
     } finally {
       setSubmitting(false);
     }
+  }, []);
+
+  const filteredWhispers = filter === 'all' 
+    ? whispers 
+    : whispers.filter(w => w.cluster === filter);
+
+  const handleRetry = () => {
+    fetchWhispers();
+  };
+
+  const toggleFilter = (cluster) => {
+    setFilter(prev => prev === cluster ? 'all' : cluster);
+  };
+
+  if (loading && whispers.length === 0) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading whispers...</p>
+      </div>
+    );
   }
 
   return (
@@ -85,35 +138,69 @@ export default function App() {
       <header className="app-header">
         <div className="brand">
           <h1>The Unsaid Archive</h1>
-          <p>Anonymous · Real-time · Women's Day 2026</p>
+          <p className="tagline">Anonymous whispers, shared souls</p>
         </div>
         <div className="live-count">
-          <span className="live-dot" />
-          <strong>{totalCount}</strong> whispers · {connected} listening
+          <span className="count">{totalCount.toLocaleString()}</span>
+          <span className="label">voices</span>
+          {connected > 0 && <span className="connected">{connected} listening</span>}
         </div>
+        <button 
+          className="stats-toggle"
+          onClick={() => setShowStats(!showStats)}
+          aria-label="Toggle statistics"
+        >
+          {showStats ? 'Hide' : 'Show'} Stats
+        </button>
       </header>
 
-      <WhisperWall
-        whispers={whispers}
-        clusters={CLUSTER_CONFIG}
-        lastNew={lastNew}
-      />
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+          <button onClick={handleRetry} className="retry-btn">Retry</button>
+        </div>
+      )}
 
-      <StatsBar
-        total={totalCount}
-        clusterCounts={clusters}
-        config={CLUSTER_CONFIG}
-      />
+      {showStats && (
+        <StatsBar 
+          clusterCounts={clusters}
+          config={CLUSTER_CONFIG}
+          onFilterClick={toggleFilter}
+          activeFilter={filter}
+        />
+      )}
 
-      <ClusterKey
-        clusterCounts={clusters}
-        config={CLUSTER_CONFIG}
-      />
+      <main className="app-main">
+        <div className="whisper-container">
+          <WhisperWall 
+            whispers={filteredWhispers}
+            clusters={clusters}
+            lastNew={lastNew}
+            config={CLUSTER_CONFIG}
+          />
+        </div>
+        
+        <aside className="sidebar">
+          <ClusterKey 
+            clusterCounts={clusters}
+            config={CLUSTER_CONFIG}
+            onFilterClick={toggleFilter}
+            activeFilter={filter}
+          />
+          <InputPanel 
+            onSubmit={handleSubmit}
+            submitting={submitting}
+          />
+        </aside>
+      </main>
 
-      <InputPanel
-        onSubmit={handleSubmit}
-        submitting={submitting}
-      />
+      <footer className="app-footer">
+        <p>Your whispers are anonymous and permanent</p>
+        <div className="connection-status">
+          <span className={`status-indicator ${socket.connected ? 'connected' : 'disconnected'}`}></span>
+          {socket.connected ? 'Connected' : 'Reconnecting...'}
+        </div>
+      </footer>
     </div>
   );
 }
