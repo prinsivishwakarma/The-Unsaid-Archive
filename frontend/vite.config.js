@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const config = {
     plugins: [react()],
     server: {
@@ -28,13 +27,18 @@ export default defineConfig(({ mode }) => {
     }
   };
 
-  // Add bundle analyzer for analyze mode
+  // Add bundle analyzer for analyze mode (optional plugin)
   if (mode === 'analyze') {
-    config.plugins.push(visualizer({ 
-      filename: 'dist/stats.html',
-      open: true,
-      gzipSize: true
-    }));
+    try {
+      const { visualizer } = await import('rollup-plugin-visualizer');
+      config.plugins.push(visualizer({ 
+        filename: 'dist/stats.html',
+        open: true,
+        gzipSize: true
+      }));
+    } catch (error) {
+      console.warn('rollup-plugin-visualizer not available, skipping bundle analysis');
+    }
   }
 
   return config;
