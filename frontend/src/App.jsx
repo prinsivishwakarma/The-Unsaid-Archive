@@ -4,9 +4,17 @@ import WhisperWall from './components/WhisperWall';
 import InputPanel from './components/InputPanel';
 import ClusterKey from './components/ClusterKey';
 import StatsBar from './components/StatsBar';
+import LoadingSpinner from './components/LoadingSpinner';
+import DebugPanel from './components/DebugPanel';
 import './App.css';
 
-const socket = io('http://localhost:3001');
+const socket = io('http://localhost:3001', {
+  autoConnect: true,
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionAttempts: 5,
+  timeout: 5000
+});
 
 export const CLUSTER_CONFIG = {
   work:  { label:'Workplace',     color:'#e8a0bf', cx:0.25, cy:0.30 },
@@ -62,15 +70,28 @@ export default function App() {
     }, 5000);
 
     socket.on('connect', () => {
+      console.log('Connected to server');
       setError(null);
       clearTimeout(connectionTimeoutRef.current);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      console.log('Disconnected from server:', reason);
       setError('Connection lost. Trying to reconnect...');
     });
 
+    socket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+      setError(`Connection error: ${error.message}`);
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('Reconnected after', attemptNumber, 'attempts');
+      setError(null);
+    });
+
     socket.on('new_whisper', (whisper) => {
+      console.log('New whisper received:', whisper);
       setWhispers(prev => [...prev, whisper]);
       setTotalCount(prev => prev + 1);
       setClusters(prev => ({ ...prev, [whisper.cluster]: (prev[whisper.cluster] || 0) + 1 }));
@@ -78,6 +99,7 @@ export default function App() {
     });
 
     socket.on('stats', (stats) => {
+      console.log('Stats received:', stats);
       setTotalCount(stats.total);
       setConnected(stats.connected);
     });
@@ -85,6 +107,8 @@ export default function App() {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('connect_error');
+      socket.off('reconnect');
       socket.off('new_whisper');
       socket.off('stats');
       clearTimeout(connectionTimeoutRef.current);
@@ -124,17 +148,50 @@ export default function App() {
     setFilter(prev => prev === cluster ? 'all' : cluster);
   };
 
-  if (loading && whispers.length === 0) {
-    return (
-      <div className="app-loading">
-        <div className="loading-spinner"></div>
-        <p>Loading whispers...</p>
-      </div>
-    );
+  const addSampleWhispers = useCallback(async () => {
+    const sampleWhispers = [
+      "I was told to smile and be quiet at work",
+      "My body doesn't feel like mine anymore",
+      "I love my family but they don't see me",
+      "I'm so angry I could scream but no one would hear",
+      "I dream of running away and starting over",
+      "I love someone who doesn't know I exist",
+      "I feel worthless most days",
+      "I want to be heard but I'm afraid to speak"
+    ];
+
+    const clusters = ['work', 'body', 'home', 'anger', 'dream', 'love', 'worth', 'voice'];
+    
+    for (let i = 0; i < sampleWhispers.length; i++) {
+      try {
+        await fetch('/api/whisper', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: sampleWhispers[i],
+            cluster: clusters[i]
+          })
+        });
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between submissions
+      } catch (error) {
+        console.error('Error adding sample whisper:', error);
+      }
+    }
+    
+    // Refresh the data after adding samples
+    setTimeout(() => {
+      fetchWhispers();
+    }, 1000);
+  }, [fetchWhispers]);
+
+  if (loading) {
+    return <LoadingSpinner message="Loading whispers from the archive..." />;
   }
 
   return (
     <div className="app">
+      <DebugPanel socket={socket} onAddSampleData={addSampleWhispers} />
+      
       <header className="app-header">
         <div className="brand">
           <h1>The Unsaid Archive</h1>
