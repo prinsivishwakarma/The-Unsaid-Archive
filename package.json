@@ -1,0 +1,22 @@
+{
+  "name": "unsaid-archive",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "The Unsaid Archive - Anonymous whisper collection platform",
+  "scripts": {
+    "test:mongo": "node test-mongo-atlas.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "mongodb": "^6.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

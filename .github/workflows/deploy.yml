@@ -1,0 +1,107 @@
+name: Deploy The Unsaid Archive
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd backend && npm ci
+        cd ../frontend && npm ci
+        
+    - name: Test MongoDB connection
+      run: |
+        cd backend
+        node ../../test-mongo-atlas.js
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Run tests (if any)
+      run: |
+        echo "No tests specified yet - skipping"
+
+  deploy-vercel:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install Vercel CLI
+      run: npm install --global vercel@latest
+      
+    - name: Install dependencies
+      run: |
+        cd backend && npm ci --only=production
+        cd ../frontend && npm ci
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Deploy to Vercel
+      run: |
+        vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+        SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        NODE_ENV: production
+
+  deploy-railway:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install Railway CLI
+      run: npm install --global @railway/cli
+      
+    - name: Deploy to Railway
+      run: |
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        railway up
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+        SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        NODE_ENV: production
