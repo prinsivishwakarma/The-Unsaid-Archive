@@ -13,19 +13,13 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: mode === 'development',
-      minify: 'terser',
+      minify: 'esbuild', // Use esbuild instead of terser for better compatibility
       rollupOptions: {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom'],
             socket: ['socket.io-client']
           }
-        }
-      },
-      terserOptions: {
-        compress: {
-          drop_console: mode === 'production',
-          drop_debugger: mode === 'production'
         }
       }
     },
