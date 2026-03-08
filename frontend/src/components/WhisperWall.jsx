@@ -51,7 +51,7 @@ export default function WhisperWall({ whispers, clusters, lastNew, config }) {
         stateRef.current.push(obj); 
       }
     });
-  }, []);
+  }, [addWhisperObj]);
 
   useEffect(() => {
     if (!lastNew) return;
@@ -212,7 +212,16 @@ export default function WhisperWall({ whispers, clusters, lastNew, config }) {
       </div>
 
       {hoveredWhisper && (
-        <div className="whisper-tooltip">
+        <div 
+          className="whisper-tooltip"
+          style={{
+            position: 'fixed',
+            left: `${hoveredWhisper.x}px`,
+            top: `${hoveredWhisper.y + 20}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 1000
+          }}
+        >
           <div className="tooltip-content">
             <span className="tooltip-cluster" style={{ color: hoveredWhisper.color }}>
               {config[hoveredWhisper.cluster]?.label || hoveredWhisper.cluster}
