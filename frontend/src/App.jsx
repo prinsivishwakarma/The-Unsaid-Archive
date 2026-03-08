@@ -6,6 +6,9 @@ import ClusterKey from './components/ClusterKey';
 import StatsBar from './components/StatsBar';
 import LoadingSpinner from './components/LoadingSpinner';
 import DebugPanel from './components/DebugPanel';
+import Navbar from './components/Navbar';
+import ClusterVisualization from './components/ClusterVisualization';
+import MesmerizingBackground from './components/MesmerizingBackground';
 import './App.css';
 
 const socket = io('http://localhost:3001', {
@@ -190,26 +193,16 @@ export default function App() {
 
   return (
     <div className="app">
-      <DebugPanel socket={socket} onAddSampleData={addSampleWhispers} />
+      <MesmerizingBackground />
       
-      <header className="app-header">
-        <div className="brand">
-          <h1>The Unsaid Archive</h1>
-          <p className="tagline">Anonymous whispers, shared souls</p>
-        </div>
-        <div className="live-count">
-          <span className="count">{totalCount.toLocaleString()}</span>
-          <span className="label">voices</span>
-          {connected > 0 && <span className="connected">{connected} listening</span>}
-        </div>
-        <button 
-          className="stats-toggle"
-          onClick={() => setShowStats(!showStats)}
-          aria-label="Toggle statistics"
-        >
-          {showStats ? 'Hide' : 'Show'} Stats
-        </button>
-      </header>
+      <Navbar 
+        totalCount={totalCount}
+        connected={connected}
+        onToggleStats={() => setShowStats(!showStats)}
+        showStats={showStats}
+      />
+      
+      <DebugPanel socket={socket} onAddSampleData={addSampleWhispers} />
 
       {error && (
         <div className="error-banner">
@@ -218,37 +211,51 @@ export default function App() {
         </div>
       )}
 
-      {showStats && (
-        <StatsBar 
-          clusterCounts={clusters}
-          config={CLUSTER_CONFIG}
-          onFilterClick={toggleFilter}
-          activeFilter={filter}
-        />
-      )}
+      <main className="app-main" style={{ paddingTop: '100px' }}>
+        <div className="content-grid">
+          <div className="left-section">
+            <ClusterVisualization 
+              clusterCounts={clusters}
+              config={CLUSTER_CONFIG}
+              onFilterClick={toggleFilter}
+              activeFilter={filter}
+            />
+            
+            {showStats && (
+              <StatsBar 
+                clusterCounts={clusters}
+                config={CLUSTER_CONFIG}
+                onFilterClick={toggleFilter}
+                activeFilter={filter}
+              />
+            )}
+          </div>
 
-      <main className="app-main">
-        <div className="whisper-container">
-          <WhisperWall 
-            whispers={filteredWhispers}
-            clusters={clusters}
-            lastNew={lastNew}
-            config={CLUSTER_CONFIG}
-          />
+          <div className="center-section">
+            <div className="whisper-container">
+              <WhisperWall 
+                whispers={filteredWhispers}
+                clusters={clusters}
+                lastNew={lastNew}
+                config={CLUSTER_CONFIG}
+              />
+            </div>
+          </div>
+          
+          <div className="right-section">
+            <ClusterKey 
+              clusterCounts={clusters}
+              config={CLUSTER_CONFIG}
+              onFilterClick={toggleFilter}
+              activeFilter={filter}
+            />
+            
+            <InputPanel 
+              onSubmit={handleSubmit}
+              submitting={submitting}
+            />
+          </div>
         </div>
-        
-        <aside className="sidebar">
-          <ClusterKey 
-            clusterCounts={clusters}
-            config={CLUSTER_CONFIG}
-            onFilterClick={toggleFilter}
-            activeFilter={filter}
-          />
-          <InputPanel 
-            onSubmit={handleSubmit}
-            submitting={submitting}
-          />
-        </aside>
       </main>
 
       <footer className="app-footer">
